@@ -9,10 +9,15 @@ def list_model_files(directory):
     return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
 
 # Directory containing the model files
-model_directory = "C:\\Work\\AIModels"
+model_directory = os.path.join("C:", "Work", "AIModels")
 
 # List all model files
 model_files = list_model_files(model_directory)
+
+if not model_files:
+    print("No models found in the directory.")
+    exit(1)
+
 print("Available models:")
 for idx, model in enumerate(model_files, start=1):
     print(f"{idx}: {model}")
@@ -29,20 +34,18 @@ llm = Llama(model_path=model_path, verbose=False, n_ctx=32768)
 previous_prompt = ""
 doContinue = False
 
-progress_running = False
+progress_event = threading.Event()
 
 def show_progress_bar():
     for char in cycle("|/-\\"):
-        if not progress_running:
+        if not progress_event.is_set():
             break
         print(f"\rThinking... {char}", end="", flush=True)
         time.sleep(0.1)
-   
-
 
 while True:
     if doContinue:
-        revious_prompt += f" Continue:"
+        previous_prompt += f" Continue:"
     else:
         user_input = input("\nEnter your question or type 'exit' to quit: ")
         if user_input.lower() == 'exit':
@@ -52,12 +55,13 @@ while True:
             continue
         previous_prompt += f"\nQ: {user_input}\nA:"
 
-    progress_running = True 
+    progress_event.set()
     progress_thread = threading.Thread(target=show_progress_bar)
     progress_thread.start()
 
     response = llm(previous_prompt, max_tokens=1024)
-    progress_running = False
+    progress_event.clear()
+    progress_thread.join()
     
     response_text = response['choices'][0]['text']
     print(response_text)
